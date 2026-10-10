@@ -163,7 +163,7 @@
       <p class="sub" style="margin:0 0 12px">Filled in once — used on the poster <i>and</i> in every caption.</p>
       <label class="fld"><span>Community name</span><input type="text" id="capText" class="inp" placeholder="e.g. GDG Cloud Pune" maxlength="60" autocomplete="off"></label>
       <label class="fld"><span>Coupon code</span><input type="text" id="cpnText" class="inp" placeholder="e.g. GDGCNGP20" maxlength="24" autocomplete="off" style="text-transform:uppercase"></label>
-      <label class="fld" id="linkRow" hidden><span>Ticket link <small>(captions only — the poster QR always uses the default)</small></span>
+      <label class="fld" id="linkRow" hidden><span>Registration / ticket link <small>(captions only — the poster QR always uses the default)</small></span>
         <input type="text" id="linkText" class="inp" autocomplete="off" spellcheck="false"></label>
       <div id="fields"></div>
     </section>
@@ -842,7 +842,7 @@ const PLAT = {
                share:t => "https://wa.me/?text=" + encodeURIComponent(t) }
 };
 const PH = /\[([^\[\]\n]{1,40})\]/g;
-const AUTO_LINK = new Set(["ticket link", "link", "ticket url", "tickets link", "qr link"]);
+const AUTO_LINK = new Set(["ticket link", "link", "ticket url", "tickets link", "qr link", "devfest registration link", "registration link", "registration url"]);
 const WEBSITE = "https://devfest.gdgcngp.in", AUTO_WEB = new Set(["website", "website link", "site", "event website"]);
 const norm = s => s.trim().toLowerCase();
 const CAP = { plat:"linkedin", variant:{}, text:{}, values:{}, sig:null };

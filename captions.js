@@ -5,7 +5,7 @@
   - Special placeholders:
       [Community name]  -> also becomes the name caption on the poster
       [Coupon code]     -> also becomes the coupon badge on the poster
-      [Ticket link]     -> filled with the DevFest tickets link (editable by the partner)
+      [DEVFEST REGISTRATION LINK] (or [Ticket link]) -> filled with https://devfest.gdgcngp.in/#tickets (partner can edit it)
       [Website]         -> always https://devfest.gdgcngp.in
   - Any other [Placeholder] you add automatically gets its own input box.
 */

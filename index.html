@@ -163,6 +163,8 @@
       <p class="sub" style="margin:0 0 12px">Filled in once — used on the poster <i>and</i> in every caption.</p>
       <label class="fld"><span>Community name</span><input type="text" id="capText" class="inp" placeholder="e.g. GDG Cloud Pune" maxlength="60" autocomplete="off"></label>
       <label class="fld"><span>Coupon code</span><input type="text" id="cpnText" class="inp" placeholder="e.g. GDGCNGP20" maxlength="24" autocomplete="off" style="text-transform:uppercase"></label>
+      <label class="fld" id="linkRow" hidden><span>Ticket link <small>(captions only — the poster QR always uses the default)</small></span>
+        <input type="text" id="linkText" class="inp" autocomplete="off" spellcheck="false"></label>
       <div id="fields"></div>
     </section>
 
@@ -841,6 +843,7 @@ const PLAT = {
 };
 const PH = /\[([^\[\]\n]{1,40})\]/g;
 const AUTO_LINK = new Set(["ticket link", "link", "ticket url", "tickets link", "qr link"]);
+const WEBSITE = "https://devfest.gdgcngp.in", AUTO_WEB = new Set(["website", "website link", "site", "event website"]);
 const norm = s => s.trim().toLowerCase();
 const CAP = { plat:"linkedin", variant:{}, text:{}, values:{}, sig:null };
 try { const s = JSON.parse(localStorage.getItem("capState") || "{}"); if (s.plat in PLAT) Object.assign(CAP, s, { sig:null }); } catch {}
@@ -858,7 +861,8 @@ const sharedVal = k => k === "community name" ? $("capText").value : $("cpnText"
 function capFill(raw) {
   return raw.replace(PH, (m, t) => {
     const k = norm(t);
-    if (AUTO_LINK.has(k)) return QR_URL;
+    if (AUTO_WEB.has(k)) return WEBSITE;
+    if (AUTO_LINK.has(k)) return $("linkText").value.trim() || QR_URL;
     const v = (SHARED.has(k) ? sharedVal(k) : CAP.values[k] || "").trim();
     return v ? (k === "coupon code" ? v.toUpperCase() : v) : m;
   });
@@ -871,7 +875,7 @@ function capCount(p, s) {
 function buildFields() {
   const toks = new Map();
   for (const p in PLAT) for (const m of capRaw(p).matchAll(PH)) {
-    const k = norm(m[1]); if (!AUTO_LINK.has(k) && !SHARED.has(k) && !toks.has(k)) toks.set(k, m[1].trim());
+    const k = norm(m[1]); if (!AUTO_LINK.has(k) && !AUTO_WEB.has(k) && !SHARED.has(k) && !toks.has(k)) toks.set(k, m[1].trim());
   }
   const sig = [...toks.keys()].join("|");
   if (sig === CAP.sig) return; CAP.sig = sig;
@@ -927,13 +931,16 @@ $("copyCap").onclick = async () => {
 ["capText", "cpnText"].forEach(id => $(id).addEventListener("input", () => {
   CAP.values[id === "capText" ? "community name" : "coupon code"] = $(id).value; capRender();
 }));
+$("linkText").value = CAP.values["ticket link"] || QR_URL;
+$("linkText").addEventListener("input", () => { CAP.values["ticket link"] = $("linkText").value; capRender(); });
+$("linkText").addEventListener("blur", () => { if (!$("linkText").value.trim()) { $("linkText").value = QR_URL; CAP.values["ticket link"] = QR_URL; capRender(); } });
 $("capText").value = CAP.values["community name"] || ""; $("cpnText").value = CAP.values["coupon code"] || "";
 
 /* ---------- mode switch: poster or caption ---------- */
 function setMode(m) {
   const cap = m === "caption";
   document.body.classList.toggle("mode-caption", cap);
-  $("posterView").hidden = cap; $("captionView").hidden = !cap; $("steps").hidden = cap;
+  $("posterView").hidden = cap; $("captionView").hidden = !cap; $("steps").hidden = cap; $("linkRow").hidden = !cap;
   (cap ? $("captionView") : $("posterView")).querySelector("aside").prepend($("detailsCard"));   // one shared card, shown in whichever tab is active
   document.querySelectorAll("#mode button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
   try { history.replaceState(null, "", "#" + m); } catch {}

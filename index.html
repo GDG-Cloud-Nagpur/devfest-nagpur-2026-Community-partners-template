@@ -18,6 +18,25 @@
     :root { --bg:#12141a; --card:#1b1e27; --ink:#eef0f6; --mute:#9aa3b5; --line:#2c3140; --soft:#22293a; --shadow:0 1px 2px #0006; }
   }
   * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  .seg { display:inline-flex; background:var(--card); border:1px solid var(--line); border-radius:99px; padding:3px; }
+  .seg button { border:0; background:transparent; border-radius:99px; padding:7px 16px; font-size:.9rem; }
+  .seg button.on { background:var(--brand); color:#fff; font-weight:600; }
+  body.mode-caption #fab { display:none !important; }
+  .inp { width:100%; padding:9px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; }
+  .fld { display:block; font-size:.85rem; margin-bottom:10px; } .fld span { display:block; margin-bottom:4px; color:var(--mute); }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; }
+  .tabs button { border-radius:99px; padding:7px 14px; font-size:.9rem; }
+  .tabs button.on { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600; }
+  textarea.inp { min-height:190px; resize:vertical; line-height:1.45; }
+  .preview { white-space:pre-wrap; background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:12px; font-size:.92rem; line-height:1.5; min-height:120px; word-break:break-word; }
+  .meter { display:flex; justify-content:space-between; font-size:.82rem; color:var(--mute); }
+  .meter .over { color:#b3261e; font-weight:600; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .actions .primary { width:auto; flex:1; min-width:180px; }
+  a.btn { display:inline-flex; align-items:center; text-decoration:none; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:0 14px; background:var(--card); }
+  a.btn:hover { border-color:var(--brand); }
+  .lab { font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin-bottom:-4px; }
   body { margin:0; font-family:system-ui,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
   header { max-width:1200px; margin:0 auto; padding:20px 16px 8px; display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; justify-content:space-between; }
   .brand { display:flex; align-items:center; gap:10px; }
@@ -103,6 +122,10 @@
     <div class="dots"><i style="background:#4285f4"></i><i style="background:#ea4335"></i><i style="background:#fbbc04"></i><i style="background:#34a853"></i></div>
     <div><h1>Partner Poster Maker</h1><div class="sub">Add your community logo &amp; the DevFest ticket QR</div></div>
   </div>
+  <div class="seg" id="mode" role="tablist" aria-label="What do you want to create?">
+    <button data-m="poster" class="on">🖼 Create poster</button>
+    <button data-m="caption">✍ Write caption</button>
+  </div>
   <ol class="steps" id="steps">
     <li class="now"><b>1</b><span>Template</span></li>
     <li><b>2</b><span>Logo</span></li>
@@ -110,7 +133,7 @@
   </ol>
 </header>
 
-<main>
+<main id="posterView">
   <aside class="panel">
     <section class="card">
       <h2>1 · Template</h2>
@@ -135,20 +158,25 @@
       <input type="file" id="logoFile" accept="image/*" hidden>
     </section>
 
+    <section class="card" id="detailsCard">
+      <h2>Your details</h2>
+      <p class="sub" style="margin:0 0 12px">Filled in once — used on the poster <i>and</i> in every caption.</p>
+      <label class="fld"><span>Community name</span><input type="text" id="capText" class="inp" placeholder="e.g. GDG Cloud Pune" maxlength="60" autocomplete="off"></label>
+      <label class="fld"><span>Coupon code</span><input type="text" id="cpnText" class="inp" placeholder="e.g. GDGCNGP20" maxlength="24" autocomplete="off" style="text-transform:uppercase"></label>
+      <div id="fields"></div>
+    </section>
+
     <section class="card">
-      <h2>Partner name caption</h2>
-      <input type="text" id="capText" placeholder="e.g. GDG Cloud Pune (optional)" maxlength="60"
-        style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit">
+      <h2>Name on poster</h2>
+      <small class="sub" style="display:block;margin-bottom:6px">Shows your community name. Leave the name empty to hide it.</small>
       <label class="chk">Text colour <input type="color" id="capColor" value="#ffffff"> <small class="sub">(auto-picked, change if you like)</small></label>
       <small id="capWarn" style="display:block;color:#b3261e;margin-top:6px"></small>
     </section>
 
     <section class="card">
-      <h2>Coupon code on poster</h2>
-      <input type="text" id="cpnText" placeholder="e.g. GDGCNGP20 (optional)" maxlength="24"
-        style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;text-transform:uppercase">
+      <h2>Coupon badge on poster</h2>
       <label class="chk">Badge colour <input type="color" id="cpnColor" value="#fbbc04"></label>
-      <small class="sub" id="cpnHint">Shown as a “USE CODE” badge. Drag it anywhere.</small>
+      <small class="sub" id="cpnHint">Shows your coupon code as a “USE CODE” badge. Leave the code empty to hide it.</small>
     </section>
 
     <section class="card" id="adjust">
@@ -201,9 +229,42 @@
     <div class="canvaswrap" id="wrap" hidden><div id="stage"></div></div>
   </section>
 </main>
+
+<main id="captionView" hidden>
+  <aside class="panel">
+    <section class="card">
+      <h2>Tips</h2>
+      <p class="sub" style="margin:0">Edit any caption in the box on the right — keep <b>[placeholders]</b> in square brackets and they will keep filling in. The ticket link is added for you.</p>
+    </section>
+  </aside>
+  <section class="card workspace">
+    <div class="tabs" id="ptabs">
+      <button data-p="linkedin" class="on">LinkedIn</button>
+      <button data-p="instagram">Instagram</button>
+      <button data-p="x">X (Twitter)</button>
+      <button data-p="whatsapp">WhatsApp</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label class="sub" for="variant">Version</label>
+      <select id="variant" class="inp" style="width:auto;padding:6px 8px"></select>
+      <button class="sm" id="resetTpl">↺ Reset to original</button>
+    </div>
+    <div class="lab">Edit caption</div>
+    <textarea id="capEdit" class="inp" spellcheck="true"></textarea>
+    <div class="lab">Preview — this is what gets copied</div>
+    <div class="preview" id="capPrev"></div>
+    <div class="meter"><span id="cnt"></span><span id="platNote"></span></div>
+    <small id="phWarn" style="color:#b3261e"></small>
+    <div class="actions">
+      <button class="primary" id="copyCap">Copy caption</button>
+      <a class="btn" id="shareCap" target="_blank" rel="noopener" hidden>Open ↗</a>
+    </div>
+  </section>
+</main>
 <button id="fab" class="primary" hidden>⬇ Download</button>
 <div id="toast"></div>
 
+<script src="captions.js"></script>
 <script>
 const QR_URL = "https://devfest.gdgcngp.in/#tickets";
 const $ = id => document.getElementById(id);
@@ -765,6 +826,121 @@ $("copy").onclick = () => {
   }, "image/png");
 };
 syncControls();
+
+/* =====================================================================
+   Caption editor (social posts)
+   ===================================================================== */
+const PLAT = {
+  linkedin:  { label:"LinkedIn", limit:3000, note:"Max 3,000 characters",
+               share:t => "https://www.linkedin.com/feed/?shareActive=true&text=" + encodeURIComponent(t) },
+  instagram: { label:"Instagram", limit:2200, note:"Max 2,200 characters · up to 30 hashtags · links aren't clickable, so use “link in bio”", share:null },
+  x:         { label:"X (Twitter)", limit:280, note:"Free accounts: 280 characters · each link counts as 23",
+               share:t => "https://twitter.com/intent/tweet?text=" + encodeURIComponent(t) },
+  whatsapp:  { label:"WhatsApp", limit:null, note:"*bold* and _italic_ work in WhatsApp",
+               share:t => "https://wa.me/?text=" + encodeURIComponent(t) }
+};
+const PH = /\[([^\[\]\n]{1,40})\]/g;
+const AUTO_LINK = new Set(["ticket link", "link", "ticket url", "tickets link", "qr link"]);
+const norm = s => s.trim().toLowerCase();
+const CAP = { plat:"linkedin", variant:{}, text:{}, values:{}, sig:null };
+try { const s = JSON.parse(localStorage.getItem("capState") || "{}"); if (s.plat in PLAT) Object.assign(CAP, s, { sig:null }); } catch {}
+const capSave = () => { try { localStorage.setItem("capState", JSON.stringify({ plat:CAP.plat, variant:CAP.variant, text:CAP.text, values:CAP.values })); } catch {} };
+const capList = (p = CAP.plat) => (window.CAPTIONS && CAPTIONS[p]) || [];
+const capIdx = (p = CAP.plat) => Math.min(CAP.variant[p] || 0, Math.max(0, capList(p).length - 1));
+const capKey = (p = CAP.plat) => p + ":" + capIdx(p);
+const capOriginal = (p = CAP.plat) => capList(p)[capIdx(p)]?.text || "";
+const capRaw = (p = CAP.plat) => CAP.text[capKey(p)] ?? capOriginal(p);
+const fieldInputs = {};
+
+// Community name & coupon code are ONE shared pair of inputs (#capText / #cpnText) used by poster and captions.
+const SHARED = new Set(["community name", "coupon code"]);
+const sharedVal = k => k === "community name" ? $("capText").value : $("cpnText").value;
+function capFill(raw) {
+  return raw.replace(PH, (m, t) => {
+    const k = norm(t);
+    if (AUTO_LINK.has(k)) return QR_URL;
+    const v = (SHARED.has(k) ? sharedVal(k) : CAP.values[k] || "").trim();
+    return v ? (k === "coupon code" ? v.toUpperCase() : v) : m;
+  });
+}
+function capCount(p, s) {
+  if (p === "x") s = s.replace(/https?:\/\/\S+/g, "x".repeat(23));
+  let n = 0; for (const ch of s) { const c = ch.codePointAt(0); n += (c >= 0x1F000 || (c >= 0x2600 && c <= 0x27BF)) && p === "x" ? 2 : 1; }
+  return n;
+}
+function buildFields() {
+  const toks = new Map();
+  for (const p in PLAT) for (const m of capRaw(p).matchAll(PH)) {
+    const k = norm(m[1]); if (!AUTO_LINK.has(k) && !SHARED.has(k) && !toks.has(k)) toks.set(k, m[1].trim());
+  }
+  const sig = [...toks.keys()].join("|");
+  if (sig === CAP.sig) return; CAP.sig = sig;
+  const box = $("fields"); box.innerHTML = ""; for (const k in fieldInputs) delete fieldInputs[k];
+  for (const [k, label] of toks) {
+    if (CAP.values[k] == null) CAP.values[k] = "";
+    const l = document.createElement("label"); l.className = "fld";
+    l.innerHTML = '<span></span><input class="inp" type="text" autocomplete="off">';
+    l.firstChild.textContent = label;
+    const inp = l.querySelector("input"); inp.value = CAP.values[k] || ""; fieldInputs[k] = inp;
+    inp.oninput = () => { CAP.values[k] = inp.value; capRender(); };
+    box.appendChild(l);
+  }
+}
+function loadEditor() { $("capEdit").value = capRaw(); }
+function capRender() {
+  buildFields();
+  const p = CAP.plat, cfg = PLAT[p], filled = capFill(capRaw());
+  $("capPrev").textContent = filled;
+  const n = capCount(p, filled), over = cfg.limit && n > cfg.limit;
+  $("cnt").innerHTML = `<span class="${over ? "over" : ""}">${n.toLocaleString()}${cfg.limit ? " / " + cfg.limit.toLocaleString() : ""} characters${over ? " — too long" : ""}</span>`;
+  const tags = p === "instagram" ? (filled.match(/#\w+/g) || []).length : 0;
+  $("platNote").textContent = cfg.note + (p === "instagram" ? ` · ${tags} hashtags${tags > 30 ? " (over 30!)" : ""}` : "");
+  const left = [...new Set([...filled.matchAll(PH)].map(m => m[0]))];
+  $("phWarn").textContent = left.length ? `Still to fill in: ${left.join(", ")}` : "";
+  $("copyCap").textContent = "📋 Copy for " + cfg.label;
+  const a = $("shareCap");
+  a.hidden = !cfg.share;
+  if (cfg.share) { a.href = cfg.share(filled); a.textContent = "Open " + cfg.label + " ↗"; }
+  capSave();
+}
+function capTabs() {
+  document.querySelectorAll("#ptabs button").forEach(b => b.classList.toggle("on", b.dataset.p === CAP.plat));
+  const sel = $("variant"); sel.innerHTML = "";
+  capList().forEach((v, i) => sel.add(new Option(v.name, i)));
+  sel.value = capIdx(); loadEditor(); capRender();
+}
+document.querySelectorAll("#ptabs button").forEach(b => b.onclick = () => { CAP.plat = b.dataset.p; capTabs(); });
+$("variant").onchange = e => { CAP.variant[CAP.plat] = +e.target.value; CAP.sig = null; loadEditor(); capRender(); };
+$("capEdit").oninput = e => { CAP.text[capKey()] = e.target.value; capRender(); };
+$("resetTpl").onclick = () => { delete CAP.text[capKey()]; CAP.sig = null; loadEditor(); capRender(); toast("Reset to the original caption"); };
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; }
+  catch { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); const ok = document.execCommand("copy"); a.remove(); return ok; }
+}
+$("copyCap").onclick = async () => {
+  const filled = capFill(capRaw()), unfilled = /\[[^\[\]\n]{1,40}\]/.test(filled);
+  const ok = await copyText(filled);
+  toast(!ok ? "Couldn't copy — select the preview text and copy manually"
+            : unfilled ? "Copied — but some [placeholders] are still unfilled" : `Copied for ${PLAT[CAP.plat].label} ✓`);
+};
+// the shared inputs also drive the live caption preview (and are remembered)
+["capText", "cpnText"].forEach(id => $(id).addEventListener("input", () => {
+  CAP.values[id === "capText" ? "community name" : "coupon code"] = $(id).value; capRender();
+}));
+$("capText").value = CAP.values["community name"] || ""; $("cpnText").value = CAP.values["coupon code"] || "";
+
+/* ---------- mode switch: poster or caption ---------- */
+function setMode(m) {
+  const cap = m === "caption";
+  document.body.classList.toggle("mode-caption", cap);
+  $("posterView").hidden = cap; $("captionView").hidden = !cap; $("steps").hidden = cap;
+  (cap ? $("captionView") : $("posterView")).querySelector("aside").prepend($("detailsCard"));   // one shared card, shown in whichever tab is active
+  document.querySelectorAll("#mode button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+  try { history.replaceState(null, "", "#" + m); } catch {}
+  if (cap) capTabs();
+}
+document.querySelectorAll("#mode button").forEach(b => b.onclick = () => setMode(b.dataset.m));
+setMode(location.hash === "#caption" ? "caption" : "poster");
 </script>
 </body>
 </html>

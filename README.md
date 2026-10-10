@@ -14,3 +14,9 @@ Single-file web app (`index.html`). No build step, no server code. Everything ru
 ## Notes
 - Needs internet for the OCR, QR and ZIP libraries (loaded from jsDelivr).
 - QR link is fixed in `index.html` (`QR_URL`).
+
+## Editing the default captions
+Captions for LinkedIn, Instagram, X and WhatsApp live in `captions.js`. Add or change variants there.
+Use `[Placeholders]` in square brackets — partners fill each one once and it applies to every platform.
+`[Community name]` and `[Coupon code]` also feed the poster; `[Ticket link]` is always the fixed tickets link.
+Direct link to caption-only mode: `…/#caption`.

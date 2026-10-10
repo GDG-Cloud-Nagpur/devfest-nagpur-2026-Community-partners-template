@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Partner Poster Maker</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+  :root {
+    --bg:#f4f6fb; --card:#fff; --ink:#1b1f2a; --mute:#667085; --line:#e2e6ef;
+    --brand:#4285f4; --brand-ink:#fff; --ok:#1e9e5a; --warn:#f29900; --soft:#eef3fe;
+    --shadow:0 1px 2px rgba(20,30,60,.06),0 6px 24px rgba(20,30,60,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12141a; --card:#1b1e27; --ink:#eef0f6; --mute:#9aa3b5; --line:#2c3140; --soft:#22293a; --shadow:0 1px 2px #0006; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { max-width:1200px; margin:0 auto; padding:20px 16px 8px; display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; justify-content:space-between; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .dots { display:flex; gap:4px; } .dots i { width:10px; height:10px; border-radius:50%; display:block; }
+  h1 { font-size:1.25rem; margin:0; }
+  .sub { color:var(--mute); font-size:.85rem; }
+  .steps { display:flex; gap:8px; list-style:none; margin:0; padding:0; font-size:.85rem; }
+  .steps li { display:flex; align-items:center; gap:6px; padding:5px 12px 5px 6px; border-radius:99px; background:var(--card); border:1px solid var(--line); color:var(--mute); }
+  .steps li b { width:20px; height:20px; border-radius:50%; background:var(--line); color:var(--ink); display:grid; place-items:center; font-size:.75rem; }
+  .steps li.done { color:var(--ink); } .steps li.done b { background:var(--ok); color:#fff; }
+  .steps li.now { color:var(--ink); border-color:var(--brand); } .steps li.now b { background:var(--brand); color:#fff; }
+
+  main { max-width:1200px; margin:0 auto; padding:8px 16px 32px; display:grid; grid-template-columns:340px 1fr; gap:16px; align-items:start; }
+  @media (max-width:860px){ main{ grid-template-columns:1fr; } .steps li span{ display:none; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow); }
+  .panel { display:flex; flex-direction:column; gap:16px; }
+  h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin:0 0 10px; }
+
+  .drop { border:2px dashed var(--line); border-radius:12px; padding:18px 12px; text-align:center; cursor:pointer; transition:.15s; background:var(--bg); }
+  .drop:hover, .drop.over { border-color:var(--brand); background:var(--soft); }
+  .drop.disabled { opacity:.5; pointer-events:none; }
+  .drop svg { width:28px; height:28px; stroke:var(--brand); fill:none; stroke-width:1.8; }
+  .drop p { margin:6px 0 0; font-size:.9rem; } .drop small { color:var(--mute); }
+  .file { display:none; align-items:center; gap:10px; }
+  .file.show { display:flex; } .drop.hide { display:none; }
+  .file img { width:52px; height:52px; object-fit:contain; border-radius:8px; background:repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0/12px 12px; border:1px solid var(--line); }
+  .file .meta { flex:1; min-width:0; font-size:.85rem; }
+  .file .meta div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .file .meta small { color:var(--mute); }
+
+  button { font:inherit; cursor:pointer; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); padding:8px 12px; transition:.15s; }
+  button:hover:not(:disabled) { border-color:var(--brand); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.primary { background:var(--brand); color:var(--brand-ink); border-color:var(--brand); font-weight:600; padding:12px; width:100%; font-size:1rem; }
+  button.primary:hover:not(:disabled) { filter:brightness(1.07); }
+  button.sm { padding:5px 9px; font-size:.8rem; }
+
+  .row { display:grid; grid-template-columns:70px 1fr 42px; gap:8px; align-items:center; font-size:.85rem; margin-bottom:8px; }
+  .row output { color:var(--mute); text-align:right; font-variant-numeric:tabular-nums; }
+  input[type=range] { width:100%; accent-color:var(--brand); }
+  label.chk { display:flex; gap:8px; align-items:center; font-size:.85rem; margin-top:6px; cursor:pointer; }
+  .qrbox { display:flex; gap:10px; align-items:center; font-size:.8rem; color:var(--mute); }
+  .qrbox canvas { width:56px; height:56px; border:1px solid var(--line); border-radius:6px; }
+  .qrbox code { color:var(--ink); word-break:break-all; }
+  .qrbox .lock { color:var(--ok); font-weight:600; }
+
+  .bar { height:6px; border-radius:99px; background:var(--line); overflow:hidden; margin-top:8px; display:none; }
+  .bar.show { display:block; } .bar i { display:block; height:100%; width:0; background:var(--brand); transition:width .2s; }
+  #status { font-size:.82rem; color:var(--mute); min-height:1.2em; }
+
+  .workspace { min-height:420px; display:flex; flex-direction:column; gap:10px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; font-size:.82rem; color:var(--mute); }
+  .canvaswrap { display:grid; place-items:center; background:repeating-conic-gradient(var(--line) 0 25%, transparent 0 50%) 0 0/20px 20px; border-radius:12px; padding:12px; }
+  #stage { position:relative; line-height:0; user-select:none; touch-action:none; box-shadow:0 8px 30px rgba(0,0,0,.25); }
+  #stage > canvas.base { display:block; max-width:100%; max-height:78vh; width:auto; height:auto; }
+  #heat { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; opacity:0; transition:.2s; }
+  #heat.on { opacity:1; }
+  .item { position:absolute; outline:2px dashed rgba(66,133,244,.0); cursor:grab; }
+  .item:hover { outline-color:rgba(66,133,244,.7); }
+  .item.sel { outline:2px solid var(--brand); }
+  .item:active { cursor:grabbing; }
+  .item > canvas, .item > img { width:100%; height:100%; display:block; pointer-events:none; }
+  .item .grip { display:none; position:absolute; right:-8px; bottom:-8px; width:16px; height:16px; background:var(--brand); border:2px solid #fff; border-radius:50%; cursor:nwse-resize; }
+  .item.sel .grip { display:block; }
+  .item .tag { display:none; position:absolute; left:-2px; top:-20px; font:600 11px system-ui; background:var(--brand); color:#fff; padding:0 7px; border-radius:5px 5px 0 0; line-height:18px; white-space:nowrap; }
+  .item.sel .tag { display:block; }
+
+  .empty { flex:1; display:grid; place-items:center; text-align:center; color:var(--mute); padding:40px 16px; border:2px dashed var(--line); border-radius:12px; }
+  .empty svg { width:64px; height:64px; stroke:var(--line); fill:none; stroke-width:1.4; }
+  .empty b { display:block; color:var(--ink); margin-top:8px; }
+
+  #qrBadge { font-size:.8rem; padding:3px 9px; border-radius:99px; background:var(--soft); }
+  #qrBadge.bad { background:#fdecea; color:#b3261e; }
+  #fab { display:none; position:fixed; right:16px; bottom:16px; width:auto; z-index:8; border-radius:99px; box-shadow:0 6px 20px rgba(0,0,0,.3); }
+  @media (max-width:860px){ #fab:not([hidden]) { display:block; } }
+  #toast { position:fixed; left:50%; bottom:24px; transform:translate(-50%,20px); background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:10px; font-size:.9rem; opacity:0; pointer-events:none; transition:.25s; z-index:9; }
+  #toast.show { opacity:1; transform:translate(-50%,0); }
+  .kbd { font:11px ui-monospace,monospace; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="dots"><i style="background:#4285f4"></i><i style="background:#ea4335"></i><i style="background:#fbbc04"></i><i style="background:#34a853"></i></div>
+    <div><h1>Partner Poster Maker</h1><div class="sub">Add your community logo &amp; the DevFest ticket QR</div></div>
+  </div>
+  <ol class="steps" id="steps">
+    <li class="now"><b>1</b><span>Template</span></li>
+    <li><b>2</b><span>Logo</span></li>
+    <li><b>3</b><span>Download</span></li>
+  </ol>
+</header>
+
+<main>
+  <aside class="panel">
+    <section class="card">
+      <h2>1 · Template</h2>
+      <div class="drop" id="dropTpl" tabindex="0">
+        <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+        <p><b>Drop template here</b> or click</p><small>PNG / JPG · you can also paste (Ctrl+V)</small>
+      </div>
+      <div class="file" id="fileTpl"><img alt=""><div class="meta"><div></div><small></small></div><button class="sm" data-clear="tpl">Replace</button></div>
+      <input type="file" id="tplFile" accept="image/*" hidden>
+      <div class="bar" id="bar"><i></i></div>
+      <div id="status">Upload your template to begin.</div>
+    </section>
+
+    <section class="card">
+      <h2>2 · Community logo</h2>
+      <div class="drop disabled" id="dropLogo" tabindex="0">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
+        <p><b>Drop logo here</b> or click</p><small>Transparent PNG works best</small>
+      </div>
+      <div class="file" id="fileLogo"><img alt=""><div class="meta"><div></div><small></small></div><button class="sm" data-clear="logo">Remove</button></div>
+      <small id="logoWarn" style="display:block;color:#b3261e;margin-top:6px"></small>
+      <input type="file" id="logoFile" accept="image/*" hidden>
+    </section>
+
+    <section class="card">
+      <h2>Partner name caption</h2>
+      <input type="text" id="capText" placeholder="e.g. GDG Cloud Pune (optional)" maxlength="60"
+        style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit">
+      <label class="chk">Text colour <input type="color" id="capColor" value="#ffffff"> <small class="sub">(auto-picked, change if you like)</small></label>
+      <small id="capWarn" style="display:block;color:#b3261e;margin-top:6px"></small>
+    </section>
+
+    <section class="card">
+      <h2>Coupon code on poster</h2>
+      <input type="text" id="cpnText" placeholder="e.g. GDGCNGP20 (optional)" maxlength="24"
+        style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;text-transform:uppercase">
+      <label class="chk">Badge colour <input type="color" id="cpnColor" value="#fbbc04"></label>
+      <small class="sub" id="cpnHint">Shown as a “USE CODE” badge. Drag it anywhere.</small>
+    </section>
+
+    <section class="card" id="adjust">
+      <h2>Adjust</h2>
+      <div class="row"><span>Logo size</span><input type="range" id="logoSize" min="4" max="60" disabled><output id="logoSizeO"></output></div>
+      <div class="row"><span>QR size</span><input type="range" id="qrSize" min="6" max="40" disabled><output id="qrSizeO"></output></div>
+      <label class="chk"><input type="checkbox" id="logoTrim" checked> Auto-trim empty margins around logo</label>
+      <label class="chk"><input type="checkbox" id="logoNoWhite"> Remove white background from logo</label>
+      <label class="chk"><input type="checkbox" id="logoBg"> White backing behind logo</label>
+      <label class="chk"><input type="checkbox" id="heatToggle"> Show detected free space</label>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button id="auto" disabled style="flex:1">↻ Re-detect</button>
+        <button id="reset" disabled style="flex:1">Reset</button>
+      </div>
+      <p class="sub" style="margin:10px 0 0">Drag to move · corner handle resizes · <span class="kbd">←↑↓→</span> nudge · <span class="kbd">Shift</span> bigger steps</p>
+    </section>
+
+    <section class="card">
+      <h2>QR code (fixed)</h2>
+      <div class="qrbox"><canvas id="qrPrev" width="112" height="112"></canvas>
+        <div><span class="lock">🔒 Locked</span><br><code>https://devfest.gdgcngp.in/#tickets</code></div></div>
+    </section>
+
+    <section class="card">
+      <h2>Batch mode</h2>
+      <p class="sub" style="margin:0 0 10px">Pick many logos at once. Each gets the current layout and is saved into one ZIP.</p>
+      <label class="chk" style="margin:0 0 10px"><input type="checkbox" id="batchCap" checked> Use each logo's filename as the caption</label>
+      <button id="batchBtn" disabled style="width:100%">📦 Choose logos &amp; build ZIP</button>
+      <input type="file" id="batchFiles" accept="image/*" multiple hidden>
+    </section>
+    <div style="display:flex;gap:8px">
+      <select id="fmt" style="border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);padding:0 8px"><option value="png">PNG</option><option value="jpg">JPG</option></select>
+      <button class="primary" id="dl" disabled>⬇ Download poster</button>
+    </div>
+    <button id="copy" disabled>📋 Copy to clipboard</button>
+  </aside>
+
+  <section class="card workspace">
+    <div class="toolbar" id="toolbar" hidden>
+      <span id="dims"></span>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span id="qrBadge"></span>
+        <button class="sm" id="undo" disabled title="Ctrl+Z">↶ Undo</button>
+        <button class="sm" id="redo" disabled title="Ctrl+Y">↷ Redo</button>
+      </span>
+    </div>
+    <div class="empty" id="empty"><div>
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15l5-4 4 3 3-2 6 4"/></svg>
+      <b>Your poster preview appears here</b>Upload a template on the left to get started.</div></div>
+    <div class="canvaswrap" id="wrap" hidden><div id="stage"></div></div>
+  </section>
+</main>
+<button id="fab" class="primary" hidden>⬇ Download</button>
+<div id="toast"></div>
+
+<script>
+const QR_URL = "https://devfest.gdgcngp.in/#tickets";
+const $ = id => document.getElementById(id);
+const stage = $("stage");
+let tpl = null, tplName = "", logoImg = null, occ = null, selected = "qr";
+const items = {
+  qr:   { x:.05, y:.05, w:.15, aspect:1, el:null },
+  logo: { x:.3,  y:.05, w:.2,  aspect:2, el:null },
+  cap:  { x:.05, y:.9,  w:.3,  aspect:6, el:null },
+  cpn:  { x:.05, y:.8,  w:.25, aspect:4, el:null }
+};
+let cpnCanvas = null;
+let capCanvas = null, capManual = false;
+
+/* ---------- helpers ---------- */
+const loadImg = f => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(f); });
+function toast(t) { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove("show"), 2400); }
+function setStatus(t) { $("status").textContent = t; }
+function progress(p) { const b = $("bar"); b.classList.toggle("show", p != null && p < 1); b.firstChild.style.width = Math.round((p || 0) * 100) + "%"; }
+function setSteps() {
+  const s = [...$("steps").children], st = [!!tpl, !!logoImg, false];
+  s.forEach((li, i) => { li.className = st[i] ? "done" : (st.findIndex(v => !v) === i ? "now" : ""); });
+  if (tpl && logoImg) s[2].className = "now";
+}
+function sizeOf(n) { return n > 1e6 ? (n/1e6).toFixed(1) + " MB" : Math.round(n/1e3) + " KB"; }
+
+/* ---------- QR ---------- */
+function drawQR(ctx, x, y, size) {
+  const qr = qrcode(0, "M"); qr.addData(QR_URL); qr.make();
+  const n = qr.getModuleCount(), quiet = 2, total = n + quiet * 2, m = size / total;
+  ctx.fillStyle = "#fff"; ctx.fillRect(x, y, size, size);
+  ctx.fillStyle = "#000";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
+    if (qr.isDark(r, c)) ctx.fillRect(x + (c + quiet) * m, y + (r + quiet) * m, Math.ceil(m), Math.ceil(m));
+}
+drawQR($("qrPrev").getContext("2d"), 0, 0, 112);
+
+/* ---------- drop zones ---------- */
+function wireDrop(zone, input, handler) {
+  zone.onclick = () => input.click();
+  zone.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } };
+  ["dragenter","dragover"].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove("over"); }));
+  zone.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) handler(f); });
+  input.onchange = () => { if (input.files[0]) handler(input.files[0]); input.value = ""; };
+}
+wireDrop($("dropTpl"), $("tplFile"), onTemplate);
+wireDrop($("dropLogo"), $("logoFile"), onLogo);
+addEventListener("paste", e => {
+  const f = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith("image/"));
+  if (!f) return; tpl ? onLogo(f) : onTemplate(f);
+});
+
+function showFile(kind, img, name, size) {
+  const box = $(kind === "tpl" ? "fileTpl" : "fileLogo"), drop = $(kind === "tpl" ? "dropTpl" : "dropLogo");
+  box.querySelector("img").src = img.src;
+  box.querySelector(".meta div").textContent = name;
+  box.querySelector("small").textContent = `${img.naturalWidth}×${img.naturalHeight} · ${sizeOf(size)}`;
+  box.classList.add("show"); drop.classList.add("hide");
+}
+function hideFile(kind) {
+  $(kind === "tpl" ? "fileTpl" : "fileLogo").classList.remove("show");
+  $(kind === "tpl" ? "dropTpl" : "dropLogo").classList.remove("hide");
+}
+$("fileTpl").querySelector("button").onclick = () => $("tplFile").click();
+$("fileLogo").querySelector("button").onclick = () => {
+  logoImg = null; hideFile("logo"); items.logo.el.hidden = true; if (selected === "logo") select("qr");
+  items.logo.placed = false; syncControls(); setSteps(); toast("Logo removed");
+};
+
+/* ---------- template ---------- */
+async function onTemplate(file) {
+  if (!file.type.startsWith("image/")) return toast("Please choose an image file");
+  tpl = await loadImg(file); tplName = file.name;
+  showFile("tpl", tpl, file.name, file.size);
+  occ = null;
+  buildStage();
+  $("empty").hidden = true; $("wrap").hidden = false; $("toolbar").hidden = false;
+  $("dims").textContent = `${tpl.naturalWidth} × ${tpl.naturalHeight}px · output keeps this resolution`;
+  $("dropLogo").classList.remove("disabled"); $("fab").hidden = false; undoS.length = redoS.length = 0; histBtns(); $("dl").disabled = false; $("copy").disabled = false; $("batchBtn").disabled = false; $("auto").disabled = false; $("reset").disabled = false;
+  setSteps();
+  await detect();
+}
+
+function buildStage() {
+  stage.innerHTML = ""; items.logo.placed = false;
+  const base = document.createElement("canvas"); base.className = "base";
+  base.width = tpl.naturalWidth; base.height = tpl.naturalHeight;
+  base.getContext("2d").drawImage(tpl, 0, 0);
+  const heat = document.createElement("canvas"); heat.id = "heat";
+  stage.append(base, heat);
+  stage.onpointerdown = e => { if (e.target === stage || e.target === base) deselect(); };
+
+  items.qr.el = makeItem("QR code", "qr");
+  const qc = document.createElement("canvas"); qc.width = qc.height = 400;
+  drawQR(qc.getContext("2d"), 0, 0, 400);
+  items.qr.el.prepend(qc);
+  items.qr.aspect = 1;
+
+  items.logo.el = makeItem("Logo", "logo");
+  items.logo.el.hidden = !logoImg;
+  if (logoImg) setLogoEl();
+  items.cap.el = makeItem("Caption", "cap");
+  items.cap.el.hidden = true;
+  setCaption();
+  items.cpn.el = makeItem("Coupon", "cpn");
+  items.cpn.el.hidden = true;
+  setCoupon();
+  select("qr"); layout();
+}
+function makeItem(label, key) {
+  const el = document.createElement("div"); el.className = "item"; el.tabIndex = 0;
+  el.innerHTML = `<span class="tag">${label}</span><span class="grip"></span>`;
+  stage.appendChild(el);
+  el.addEventListener("pointerdown", ev => startDrag(ev, key));
+  el.addEventListener("keydown", ev => nudge(ev, key));
+  return el;
+}
+let logoCanvas = null;
+// build the logo actually drawn: optional white removal + transparent/white margin trim
+function processLogo(img = logoImg) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d", { willReadFrequently:true }); x.drawImage(img, 0, 0);
+  const d = x.getImageData(0, 0, w, h), p = d.data;
+  if ($("logoNoWhite").checked)
+    for (let i = 0; i < p.length; i += 4) {
+      const m = Math.min(p[i], p[i+1], p[i+2]);
+      if (m > 235) p[i+3] = 0; else if (m > 200) p[i+3] = Math.min(p[i+3], Math.round((235 - m) / 35 * 255));
+    }
+  x.putImageData(d, 0, 0);
+  if (!$("logoTrim").checked) return c;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) {
+    const i = (y*w + xx) * 4, white = p[i] > 245 && p[i+1] > 245 && p[i+2] > 245;
+    if (p[i+3] > 12 && !white) { if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  }
+  if (x1 < 0) return c;
+  const t = document.createElement("canvas"); t.width = x1 - x0 + 1; t.height = y1 - y0 + 1;
+  t.getContext("2d").drawImage(c, x0, y0, t.width, t.height, 0, 0, t.width, t.height);
+  return t;
+}
+/* ---------- caption ---------- */
+function makeCaption(text, color) {
+  const c = document.createElement("canvas"), x = c.getContext("2d");
+  const font = '600 120px "Google Sans","Segoe UI",Roboto,Arial,sans-serif';
+  x.font = font; c.width = Math.ceil(x.measureText(text).width) + 30; c.height = 170;
+  x.font = font; x.fillStyle = color; x.textBaseline = "middle"; x.fillText(text, 15, 88);
+  return c;
+}
+function setCaption() {
+  const el = items.cap.el; if (!el) return;
+  const t = $("capText").value.trim(), wasHidden = el.hidden;
+  el.querySelectorAll("canvas").forEach(c => c.remove());
+  if (!t) { capCanvas = null; el.hidden = true; return; }
+  const oldAspect = items.cap.aspect;
+  capCanvas = makeCaption(t, $("capColor").value);
+  el.prepend(capCanvas); el.hidden = false;
+  items.cap.aspect = capCanvas.width / capCanvas.height;
+  if (!wasHidden) items.cap.w *= items.cap.aspect / oldAspect;   // keep text height constant
+  clampItem(items.cap); layout();
+  if (wasHidden && occ) autoPlace("", "cap");
+}
+$("capText").oninput = setCaption;
+$("capColor").oninput = () => { capManual = true; setCaption(); };
+/* ---------- coupon badge ---------- */
+function makeCoupon(code, bg) {
+  const c = document.createElement("canvas"), x = c.getContext("2d");
+  const lumHex = h => { const n = parseInt(h.slice(1), 16); return .299*(n>>16) + .587*((n>>8)&255) + .114*(n&255); };
+  const fg = lumHex(bg) > 150 ? "#1b1f2a" : "#ffffff";
+  const lf = '600 52px "Segoe UI",Roboto,Arial,sans-serif', cf = '800 110px "Consolas","Courier New",monospace';
+  x.font = lf; const lw = x.measureText("USE CODE").width;
+  x.font = cf; const cw = x.measureText(code).width;
+  c.width = Math.ceil(lw + cw + 130); c.height = 170;
+  x.fillStyle = bg; x.beginPath(); x.roundRect(4, 4, c.width - 8, 162, 44); x.fill();
+  x.strokeStyle = fg; x.globalAlpha = .55; x.lineWidth = 5; x.setLineDash([16, 12]);
+  x.beginPath(); x.roundRect(18, 18, c.width - 36, 134, 32); x.stroke();
+  x.globalAlpha = 1; x.fillStyle = fg; x.textBaseline = "middle";
+  x.font = lf; x.fillText("USE CODE", 50, 88);
+  x.font = cf; x.fillText(code, 50 + lw + 30, 90);
+  return c;
+}
+function setCoupon() {
+  const el = items.cpn.el; if (!el) return;
+  const t = $("cpnText").value.trim().toUpperCase(), wasHidden = el.hidden;
+  el.querySelectorAll("canvas").forEach(c => c.remove());
+  if (!t) { cpnCanvas = null; el.hidden = true; return; }
+  const oldAspect = items.cpn.aspect;
+  cpnCanvas = makeCoupon(t, $("cpnColor").value);
+  el.prepend(cpnCanvas); el.hidden = false;
+  items.cpn.aspect = cpnCanvas.width / cpnCanvas.height;
+  if (!wasHidden) items.cpn.w *= items.cpn.aspect / oldAspect;
+  clampItem(items.cpn); layout();
+  if (wasHidden && occ) autoPlace("", "cpn");
+}
+$("cpnText").oninput = setCoupon; $("cpnColor").oninput = setCoupon;
+
+/* ---------- contrast / quality helpers ---------- */
+function lumFrac(x, y, w, h) {                 // mean luma (0-255) of template region, fractions of image
+  const { px, sw, sh } = occ; let s = 0, n = 0;
+  const x0 = Math.floor(x*sw), x1 = Math.min(sw, Math.ceil((x+w)*sw)), y0 = Math.floor(y*sh), y1 = Math.min(sh, Math.ceil((y+h)*sh));
+  for (let j = y0; j < y1; j += 2) for (let i = x0; i < x1; i += 2) { const k = (j*sw + i) * 4; s += .299*px[k] + .587*px[k+1] + .114*px[k+2]; n++; }
+  return n ? s / n : 255;
+}
+const relL = l => Math.pow(l / 255, 2.2);
+const contrast = (a, b) => (Math.max(relL(a), relL(b)) + .05) / (Math.min(relL(a), relL(b)) + .05);
+function logoLuma() {
+  const c = logoCanvas, d = c.getContext("2d", { willReadFrequently:true }).getImageData(0, 0, c.width, c.height).data;
+  let s = 0, n = 0; for (let i = 0; i < d.length; i += 16) if (d[i+3] > 128) { s += .299*d[i] + .587*d[i+1] + .114*d[i+2]; n++; }
+  return n ? s / n : 128;
+}
+function warnings() {
+  const out = $("capWarn");
+  if (!out.textContent && !out.dataset.init) { out.dataset.init = 1; }
+  const msgs = [];
+  if (occ && capCanvas) {
+    const k = items.cap, h = k.w * tpl.naturalWidth / k.aspect / tpl.naturalHeight;
+    const bg = lumFrac(k.x, k.y, k.w, h), n = parseInt($("capColor").value.slice(1), 16);
+    const fg = .299*(n>>16) + .587*((n>>8)&255) + .114*(n&255);
+    if (contrast(bg, fg) < 3) msgs.push("Caption colour is hard to read on this background.");
+  }
+  out.textContent = msgs.join(" ");
+  const lw = $("logoWarn"), lm = [];
+  if (logoImg && logoCanvas) {
+    const drawn = items.logo.w * tpl.naturalWidth;
+    if (drawn > logoCanvas.width * 1.5) lm.push(`Logo is only ${logoCanvas.width}px wide and is stretched to ${Math.round(drawn)}px — it may look blurry. Use a larger file or shrink it.`);
+  }
+  lw.textContent = lm.join(" ");
+}
+
+function regionLum(rc) {                     // mean luminance of template under a cell rect
+  const { px, sw, cell } = occ; let s = 0, n = 0;
+  for (let y = rc.r*cell; y < (rc.r+rc.h)*cell; y += 2) for (let x = rc.q*cell; x < (rc.q+rc.w)*cell; x += 2) {
+    const i = (y*sw + x) * 4; s += .299*px[i] + .587*px[i+1] + .114*px[i+2]; n++;
+  }
+  return n ? s / n : 255;
+}
+
+function setLogoEl() {
+  const el = items.logo.el;
+  logoCanvas = processLogo();
+  el.querySelectorAll("img").forEach(i => i.remove());
+  const im = document.createElement("img"); im.src = logoCanvas.toDataURL(); el.prepend(im);
+  el.hidden = false;
+  const L = items.logo, newAspect = logoCanvas.width / logoCanvas.height;
+  if (L.placed && tpl) {                         // keep the same spot: fit new shape inside the old box, same centre
+    const W = tpl.naturalWidth, H = tpl.naturalHeight, bw = L.w, bh = L.w * W / L.aspect / H;
+    const cx = L.x + bw / 2, cy = L.y + bh / 2;
+    L.aspect = newAspect;
+    L.w = Math.min(bw, bh * H / W * newAspect);
+    const nh = L.w * W / newAspect / H;
+    L.x = cx - L.w / 2; L.y = cy - nh / 2; clampItem(L);
+  } else L.aspect = newAspect;
+  applyBacking();
+}
+["logoTrim", "logoNoWhite"].forEach(id => $(id).onchange = () => {
+  if (!logoImg) return; setLogoEl(); layout();
+});
+function applyBacking() { items.logo.el && (items.logo.el.style.background = $("logoBg").checked ? "#fff" : "none"); }
+$("logoBg").onchange = applyBacking;
+
+function select(k) { selected = k; for (const key in items) items[key].el?.classList.toggle("sel", key === k); }
+function deselect() { for (const key in items) items[key].el?.classList.remove("sel"); }
+
+function layout() {
+  const W = tpl.naturalWidth, H = tpl.naturalHeight;
+  for (const k in items) {
+    const it = items[k]; if (!it.el) continue;
+    const h = it.w * W / it.aspect / H;
+    Object.assign(it.el.style, { left: it.x*100+"%", top: it.y*100+"%", width: it.w*100+"%", height: h*100+"%" });
+  }
+  syncControls();
+}
+/* ---------- undo / redo ---------- */
+const undoS = [], redoS = [];
+const snap = () => JSON.stringify(Object.fromEntries(Object.keys(items).map(k => [k, [items[k].x, items[k].y, items[k].w]])));
+function pushHistory() {
+  const s = snap(); if (undoS[undoS.length - 1] === s) return;
+  undoS.push(s); if (undoS.length > 60) undoS.shift(); redoS.length = 0; histBtns();
+}
+function restore(s) { const o = JSON.parse(s); for (const k in o) [items[k].x, items[k].y, items[k].w] = o[k]; layout(); }
+function undo() { if (!undoS.length) return; redoS.push(snap()); restore(undoS.pop()); histBtns(); }
+function redo() { if (!redoS.length) return; undoS.push(snap()); restore(redoS.pop()); histBtns(); }
+function histBtns() { $("undo").disabled = !undoS.length; $("redo").disabled = !redoS.length; }
+$("undo").onclick = undo; $("redo").onclick = redo;
+addEventListener("keydown", e => {
+  if (e.target.matches("input[type=text]")) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
+});
+["logoSize", "qrSize"].forEach(id => $(id).addEventListener("pointerdown", pushHistory));
+
+/* ---------- QR readability ---------- */
+const QR_MIN_PX = 160;     // below this on the output image, scanning gets unreliable
+function qrBadge() {
+  if (!tpl) return;
+  const px = Math.round(items.qr.w * tpl.naturalWidth), ok = px >= QR_MIN_PX, b = $("qrBadge");
+  b.textContent = ok ? `QR ${px}px ✓ scannable size` : `QR ${px}px — too small, enlarge it`;
+  b.classList.toggle("bad", !ok);
+}
+function verifyQR(canvas) {
+  const W = canvas.width, H = canvas.height, q = items.qr, m = Math.round(q.w * W * .1);
+  const x = Math.max(0, Math.round(q.x * W) - m), y = Math.max(0, Math.round(q.y * H) - m);
+  const w = Math.min(W - x, Math.round(q.w * W) + 2*m), h = Math.min(H - y, Math.round(q.w * W) + 2*m);
+  try {
+    const d = canvas.getContext("2d").getImageData(x, y, w, h);
+    const r = window.jsQR && jsQR(d.data, w, h);
+    return r ? r.data === QR_URL : null;      // null = checker unavailable
+  } catch { return null; }
+}
+
+function syncControls() {
+  qrBadge(); warnings();
+  const l = $("logoSize"), q = $("qrSize");
+  l.disabled = !logoImg; q.disabled = !tpl;
+  l.value = Math.round(items.logo.w * 100); q.value = Math.round(items.qr.w * 100);
+  $("logoSizeO").textContent = logoImg ? l.value + "%" : "–"; $("qrSizeO").textContent = tpl ? q.value + "%" : "–";
+}
+function clampItem(it) {
+  const W = tpl.naturalWidth, H = tpl.naturalHeight, h = it.w * W / it.aspect / H;
+  it.w = Math.min(it.w, 1); it.x = Math.max(0, Math.min(1 - it.w, it.x)); it.y = Math.max(0, Math.min(1 - h, it.y));
+}
+$("logoSize").oninput = e => { items.logo.w = e.target.value / 100; clampItem(items.logo); layout(); };
+$("qrSize").oninput   = e => { items.qr.w = e.target.value / 100; clampItem(items.qr); layout(); };
+
+/* ---------- drag / resize / keys ---------- */
+function startDrag(ev, key) {
+  ev.preventDefault(); ev.stopPropagation(); select(key); pushHistory();
+  items[key].el.focus({ preventScroll:true });
+  const it = items[key], rect = stage.getBoundingClientRect();
+  const resize = ev.target.classList.contains("grip");
+  const sx = ev.clientX, sy = ev.clientY, ox = it.x, oy = it.y, ow = it.w;
+  const W = tpl.naturalWidth, H = tpl.naturalHeight;
+  const move = e => {
+    const dx = (e.clientX - sx) / rect.width, dy = (e.clientY - sy) / rect.height;
+    if (resize) { it.w = Math.max(.04, Math.min(1 - it.x, ow + dx)); }
+    else {
+      const h = it.w * W / it.aspect / H;
+      it.x = Math.max(0, Math.min(1 - it.w, ox + dx));
+      it.y = Math.max(0, Math.min(1 - h, oy + dy));
+    }
+    layout();
+  };
+  const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); };
+  addEventListener("pointermove", move); addEventListener("pointerup", up);
+}
+function nudge(ev, key) {
+  const d = { ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1] }[ev.key];
+  if (!d) return; ev.preventDefault();
+  const step = ev.shiftKey ? .02 : .004, it = items[key];
+  if (!nudge.t || Date.now() - nudge.t > 600) pushHistory(); nudge.t = Date.now();
+  it.x += d[0] * step; it.y += d[1] * step; clampItem(it); layout();
+}
+
+/* ---------- free-space detection ---------- */
+async function detect() {
+  setStatus("Analysing image…"); progress(.05);
+  const W = tpl.naturalWidth, scale = Math.min(1, 700 / W);
+  const sw = Math.round(W * scale), sh = Math.round(tpl.naturalHeight * scale);
+  const c = document.createElement("canvas"); c.width = sw; c.height = sh;
+  const ctx = c.getContext("2d", { willReadFrequently:true });
+  ctx.drawImage(tpl, 0, 0, sw, sh);
+  const px = ctx.getImageData(0, 0, sw, sh).data;
+  const cell = 6, cols = Math.floor(sw / cell), rows = Math.floor(sh / cell);
+  const grid = new Uint8Array(cols * rows);
+  const lum = (x, y) => { const i = (y*sw + x) * 4; return .299*px[i] + .587*px[i+1] + .114*px[i+2]; };
+  for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+    let sum = 0, cnt = 0;
+    for (let y = r*cell; y < (r+1)*cell - 1; y++) for (let x = q*cell; x < (q+1)*cell - 1; x++) {
+      sum += Math.abs(lum(x+1, y) - lum(x, y)) + Math.abs(lum(x, y+1) - lum(x, y)); cnt++;
+    }
+    if (sum / cnt > 9) grid[r*cols + q] = 1;
+  }
+  let ocrOk = true;
+  try {
+    setStatus("Reading text with OCR (first run downloads language data)…");
+    const { data } = await Tesseract.recognize(c, "eng", { logger:m => { if (m.status === "recognizing text") progress(.2 + m.progress * .75); } });
+    for (const w of data.words || []) {
+      if (w.confidence < 30) continue;
+      const { x0, y0, x1, y1 } = w.bbox;
+      mark(grid, cols, rows, Math.floor(x0/cell)-1, Math.floor(y0/cell)-1, Math.ceil(x1/cell)+1, Math.ceil(y1/cell)+1);
+    }
+  } catch (err) { console.warn(err); ocrOk = false; }
+  const d = new Uint8Array(grid);
+  for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) if (grid[r*cols+q])
+    for (let dr = -1; dr <= 1; dr++) for (let dq = -1; dq <= 1; dq++) {
+      const rr = r+dr, qq = q+dq; if (rr>=0 && rr<rows && qq>=0 && qq<cols) d[rr*cols+qq] = 1;
+    }
+  occ = { cols, rows, grid:d, px, sw, sh, cell };
+  drawHeat();
+  progress(1);
+  autoPlace(ocrOk ? "" : "OCR unavailable (offline?) — used pixel analysis only. ");
+}
+function mark(g, cols, rows, a, b, c2, d) {
+  for (let r = Math.max(0, b); r < Math.min(rows, d); r++) for (let q = Math.max(0, a); q < Math.min(cols, c2); q++) g[r*cols+q] = 1;
+}
+function drawHeat() {
+  const h = $("heat"), { cols, rows, grid } = occ;
+  h.width = cols; h.height = rows;
+  const x = h.getContext("2d"); x.clearRect(0, 0, cols, rows);
+  for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+    x.fillStyle = grid[r*cols+q] ? "rgba(234,67,53,.35)" : "rgba(52,168,83,.35)"; x.fillRect(q, r, 1, 1);
+  }
+  h.style.imageRendering = "pixelated";
+  h.classList.toggle("on", $("heatToggle").checked);
+}
+$("heatToggle").onchange = e => $("heat")?.classList.toggle("on", e.target.checked);
+
+function integral(g, cols, rows) {
+  const I = new Int32Array((cols+1) * (rows+1));
+  for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++)
+    I[(r+1)*(cols+1) + q+1] = g[r*cols+q] + I[r*(cols+1)+q+1] + I[(r+1)*(cols+1)+q] - I[r*(cols+1)+q];
+  return I;
+}
+const rectSum = (I, cols, q, r, w, h) => { const s = cols + 1; return I[(r+h)*s+q+w] - I[r*s+q+w] - I[(r+h)*s+q] + I[r*s+q]; };
+function findRect(g, cols, rows, aspect, maxW, maxH, minW) {
+  const I = integral(g, cols, rows);
+  for (let w = Math.min(maxW, cols); w >= minW; w--) {
+    const h = Math.max(1, Math.round(w / aspect));
+    if (h > rows || h > maxH) continue;
+    let best = null;
+    for (let r = 0; r + h <= rows; r++) for (let q = 0; q + w <= cols; q++)
+      if (rectSum(I, cols, q, r, w, h) === 0) best = { q, r, w, h };
+    if (best) return best;
+  }
+  return null;
+}
+// autoPlace(): no `only` → place everything from scratch (initial detect, Re-detect, Reset).
+// autoPlace("", "logo"|"cap"|"cpn") → place just that new element; everything else stays exactly where it is.
+function autoPlace(prefix = "", only = null) {
+  pushHistory();
+  const { cols, rows, grid } = occ, g = new Uint8Array(grid);
+  const W = tpl.naturalWidth, H = tpl.naturalHeight;
+  const logoAspect = logoCanvas && logoImg ? logoCanvas.width / logoCanvas.height : 2.2;
+  const cells = f => Math.max(2, Math.round(cols * f));
+  const put = (rc, it, aspect) => { it.x = rc.q / cols; it.y = rc.r / rows; it.w = rc.w / cols; it.aspect = aspect; };
+  const block = rc => mark(g, cols, rows, rc.q-1, rc.r-1, rc.q+rc.w+1, rc.r+rc.h+1);
+  const rectOf = it => ({ q:Math.floor(it.x*cols), r:Math.floor(it.y*rows), w:Math.ceil(it.w*cols), h:Math.ceil(it.w*W/it.aspect/H*rows) });
+  const visible = { qr:true, logo:!!logoImg, cap:!!capCanvas, cpn:!!cpnCanvas };
+  const msgs = [];
+  if (only) for (const k in items) if (k !== only && visible[k]) block(rectOf(items[k]));   // keep existing arrangement
+  const want = k => !only || only === k;
+
+  if (want("qr")) {
+    const qr = findRect(g, cols, rows, 1, cells(.2), rows, cells(.08));
+    if (qr) { put(qr, items.qr, 1); block(qr); } else msgs.push("No free space for the QR — drag it into place.");
+  }
+  if (want("logo")) {
+    const lg = findRect(g, cols, rows, logoAspect, Math.round(cols * .35), Math.round(rows * .2), cells(.1));
+    if (lg) {
+      put(lg, items.logo, logoAspect); block(lg); items.logo.placed = !!logoImg;
+      if (logoCanvas && logoImg && !$("logoBg").checked && Math.abs(regionLum(lg) - logoLuma()) < 70) {
+        $("logoBg").checked = true; applyBacking(); msgs.push("Logo is similar in tone to the background, so a white backing was added (untick to remove).");
+      }
+    } else { items.logo.aspect = logoAspect; if (logoImg) msgs.push("No free space for the logo — drag it into place."); }
+  }
+  if (want("cap") && capCanvas) {
+    const ca = capCanvas.width / capCanvas.height;
+    const cp = findRect(g, cols, rows, ca, Math.round(cols * .6), Math.round(rows * .08), cells(.12));
+    if (cp) {
+      put(cp, items.cap, ca); block(cp);
+      if (!capManual) { $("capColor").value = regionLum(cp) < 140 ? "#ffffff" : "#1b1f2a"; capCanvas = makeCaption($("capText").value.trim(), $("capColor").value); items.cap.el.querySelector("canvas").replaceWith(capCanvas); }
+    } else msgs.push("No free space for the caption — drag it into place.");
+  }
+  if (want("cpn") && cpnCanvas) {
+    const pa = cpnCanvas.width / cpnCanvas.height;
+    const cr = findRect(g, cols, rows, pa, Math.round(cols * .5), Math.round(rows * .1), cells(.12));
+    if (cr) put(cr, items.cpn, pa); else msgs.push("No free space for the coupon badge — drag it into place.");
+  }
+  layout();
+  const done = only ? "Added in free space — everything else stayed where it was." : (logoImg ? "Placed automatically. Fine-tune if needed, then download." : "QR placed. Now add your community logo.");
+  setStatus(prefix + (msgs.join(" ") || done));
+  if (!msgs.length && !prefix && !only) toast("Free space detected ✓");
+}
+$("auto").onclick = () => occ && autoPlace();
+$("reset").onclick = () => { if (occ) { autoPlace(); toast("Reset to auto-detected positions"); } };
+
+/* ---------- logo ---------- */
+async function onLogo(file) {
+  if (!tpl) return toast("Upload the template first");
+  if (!file.type.startsWith("image/")) return toast("Please choose an image file");
+  logoImg = await loadImg(file);
+  showFile("logo", logoImg, file.name, file.size);
+  const wasPlaced = items.logo.placed;
+  setLogoEl(); setSteps();
+  if (!wasPlaced && occ) autoPlace("", "logo"); else layout();
+  select("logo");
+}
+
+/* ---------- download ---------- */
+function renderFinal({ logo = logoImg ? logoCanvas : null, caption = capCanvas, coupon = cpnCanvas, fit = false } = {}) {
+  const W = tpl.naturalWidth, H = tpl.naturalHeight;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(tpl, 0, 0);
+  const q = items.qr; drawQR(ctx, q.x * W, q.y * H, q.w * W);
+  if (logo) {
+    const l = items.logo, bw = l.w * W, bh = bw / l.aspect;
+    let lw = bw, lh = bw * logo.height / logo.width, lx = l.x * W, ly = l.y * H;
+    if (fit) {                                  // contain inside the current logo box, centred
+      const s = Math.min(bw / logo.width, bh / logo.height);
+      lw = logo.width * s; lh = logo.height * s; lx += (bw - lw) / 2; ly += (bh - lh) / 2;
+    }
+    if ($("logoBg").checked) { ctx.fillStyle = "#fff"; ctx.fillRect(lx, ly, lw, lh); }
+    ctx.drawImage(logo, lx, ly, lw, lh);
+  }
+  if (caption) {
+    const k = items.cap, ch = k.w * W / k.aspect, cw = fit ? Math.min(ch * caption.width / caption.height, W - k.x * W) : k.w * W;
+    ctx.drawImage(caption, k.x * W, k.y * H, cw, ch);
+  }
+  if (coupon) {
+    const k = items.cpn; ctx.drawImage(coupon, k.x * W, k.y * H, k.w * W, k.w * W / k.aspect);
+  }
+  return c;
+}
+const blobOf = (c, type = "image/png") => new Promise(r => c.toBlob(r, type, .95));
+const saveBlob = (b, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = name; a.click(); };
+
+/* ---------- batch ---------- */
+$("batchBtn").onclick = () => $("batchFiles").click();
+$("batchFiles").onchange = async e => {
+  const files = [...e.target.files].filter(f => f.type.startsWith("image/")); e.target.value = "";
+  if (!files.length) return;
+  const zip = new JSZip(), jpg = $("fmt").value === "jpg", used = {};
+  $("batchBtn").disabled = true;
+  try {
+    for (let i = 0; i < files.length; i++) {
+      setStatus(`Building poster ${i + 1} of ${files.length}…`); progress((i + .5) / files.length);
+      const f = files[i], img = await loadImg(f);
+      const base = f.name.replace(/\.[^.]+$/, "");
+      const name = base.replace(/[-_]+/g, " ").trim();
+      const cap = $("batchCap").checked && name ? makeCaption(name, $("capColor").value) : capCanvas;
+      const out = renderFinal({ logo: processLogo(img), caption: cap, fit: true });
+      used[base] = (used[base] || 0) + 1;
+      zip.file(`${base}${used[base] > 1 ? "-" + used[base] : ""}-partner.${jpg ? "jpg" : "png"}`, await blobOf(out, jpg ? "image/jpeg" : "image/png"));
+    }
+    progress(1); setStatus("Zipping…");
+    saveBlob(await zip.generateAsync({ type:"blob" }), "partner-posters.zip");
+    setStatus(`Done — ${files.length} posters in partner-posters.zip`); toast(`${files.length} posters ready ✓`);
+  } catch (err) { console.error(err); toast("Batch failed — see console"); setStatus("Batch failed."); }
+  $("batchBtn").disabled = false;
+};
+$("dl").onclick = () => {
+  if (!logoImg && !confirm("No community logo added yet. Download anyway?")) return;
+  const jpg = $("fmt").value === "jpg", final = renderFinal(), ok = verifyQR(final);
+  if (ok === false && !confirm("The QR code could not be read on this poster (too small or damaged). Download anyway?")) return;
+  final.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = tplName.replace(/\.[^.]+$/, "") + "-partner." + (jpg ? "jpg" : "png");
+    a.click(); toast(ok ? "Downloaded ✓ QR scan test passed" : "Poster downloaded ✓");
+  }, jpg ? "image/jpeg" : "image/png", .95);
+};
+$("fab").onclick = () => $("dl").click();
+$("copy").onclick = () => {
+  renderFinal().toBlob(async b => {
+    try { await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); toast("Copied to clipboard ✓"); }
+    catch { toast("Copy not supported here — use Download"); }
+  }, "image/png");
+};
+syncControls();
+</script>
+</body>
+</html>
